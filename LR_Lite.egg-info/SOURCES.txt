@@ -21,6 +21,9 @@ lrlite/api/views.py
 lrlite/api/lib/__init__.py
 lrlite/api/lib/tests.py
 lrlite/api/lib/validation.py
+lrlite/api/lib/schema/__init__.py
+lrlite/api/lib/schema/uri_validate.py
+lrlite/api/lib/schema/validate.py
 lrlite/static/favicon.ico
 lrlite/static/footerbg.png
 lrlite/static/headerbg.png
