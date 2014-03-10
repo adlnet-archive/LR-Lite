@@ -32,8 +32,8 @@ class ViewTests(unittest.TestCase):
 
     def _list_test_generic(self, params, comparer):
         request = self._prepare_request(params)
-        data = retrieve_list(request)
-        for envelope in data.json:
+        data = retrieve_list(request)        
+        for envelope in data.json.get('response', []):            
             date = iso8601.parse_date(envelope.get("node_timestamp"))
             self.assertTrue(comparer(date))
 

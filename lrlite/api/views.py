@@ -25,25 +25,21 @@ def _populate_node_values(envelope, req):
 
 def _parse_retrieve_params(req):    
     params = {"limit": 10, "stale": "update_after"}
-    include_docs = req.GET.get("include_docs", False)
-    if not isinstance(include_docs, bool):
-        try:
-            include_docs = json.loads(include_docs)
-            params['include_docs'] = include_docs
-        except Exception as ex:
-            log.exception(ex)
-            raise HTTPBadRequest("Invalid JSON for include_docs")
+    include_docs = req.GET.get("include_docs", "false")
+    try:
+        include_docs = json.loads(include_docs)            
+    except Exception as ex:
+        raise HTTPBadRequest("Invalid JSON for include_docs")
+    params['include_docs'] = include_docs        
     try:
         time = iso8601.parse_date(req.GET.get("from", datetime.min.isoformat()))
         params['startkey'] = calendar.timegm(time.utctimetuple())
     except Exception as ex:
-        log.exception(ex)
         raise HTTPBadRequest("Invalid from time, must be ISO 8601 format")
     try:
         time = iso8601.parse_date(req.GET.get("until", datetime.utcnow().isoformat()))
         params['endkey'] = calendar.timegm(time.utctimetuple())
     except Exception as ex:
-        log.exception(ex)
         raise HTTPBadRequest("Invalid until time, must be ISO 8601 format")            
     if params['endkey'] < params['startkey']:
         raise HTTPBadRequest("From date cannot come after until date")            
@@ -59,8 +55,8 @@ def add_envelope(req):
     if not result.success:
         return {"OK": False, "msg": result.message}
     result = validate_signature(data)
-    if not result:
-        return {"OK": False, "msg": "Invalid Signature"}
+    if not result.success:
+        return {"OK": False, "msg": request.message}
     req.db[data['doc_ID']] = data
     return {"OK": True, "doc_ID": data['doc_ID']}
         
@@ -69,26 +65,15 @@ def add_envelope(req):
 @view_config(route_name="api", renderer="json", request_method="GET")
 def retrieve_list(req):
     params = _parse_retrieve_params(req)
-    def stream_results():        
-        resp = requests.get(req.db.uri + "/_design/lr/_view/by-timestamp", stream=True, params=params)
-        r = Response()
-        item_selector = "rows.item.id"
-        if params.get("include_docs"):
-            item_selector = "rows.item.doc"
-        items = ijson.items(resp.raw, item_selector)    
-        first = True
-        yield '['
-        for x in items:
-            if not first:
-                yield ','
-            first = False
-            yield json.dumps(x)
-        yield ']'        
     headers = {
         'Content-Type': 'application/json',
     }
+    list_function = "ids"
+    if params['include_docs']:
+        list_function = "docs"
+    resp = requests.get(req.db.uri + "/_design/lr/_list/"+list_function+"/by-timestamp", stream=True, params=params)
     r = Response(headers=headers)
-    r.app_iter = stream_results()
+    r.body_file = resp.raw
     return r
 
 
