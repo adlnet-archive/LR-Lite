@@ -75,17 +75,20 @@ def add_envelope(req):
     return {"OK": True, _DOC_ID: data[_DOC_ID]}
 
 
+def _get_db_uri(db, params):
+    list_function = "ids"
+    if params['include_docs']:
+        list_function = "docs"
+    return db.uri + "/_design/lr/_list/" + list_function + "/by-timestamp"
+
+
 @view_config(route_name="api", renderer="json", request_method="GET")
 def retrieve_list(req):
     params = _parse_retrieve_params(req)
     headers = {
         'Content-Type': 'application/json',
     }
-    list_function = "ids"
-    if params['include_docs']:
-        list_function = "docs"
-    resp = requests.get(req.db.uri + "/_design/lr/_list/" +
-                        list_function + "/by-timestamp", stream=True, params=params)
+    resp = requests.get(_get_db_uri(req.db, params), stream=True, params=params)
     r = Response(headers=headers)
     r.body_file = resp.raw
     return r
