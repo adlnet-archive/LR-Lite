@@ -1,7 +1,7 @@
 from pyramid.view import view_config
 from .models import *
 from logging import getLogger
-
+from couchdbkit.exceptions import ResourceConflict
 log = getLogger(__name__)
 
 def _validate_param(param):
@@ -12,7 +12,11 @@ def home(request):
     return {'project': 'LR-Lite', "success": True, "error": "test"}
 
 
-@view_config(route_name='home', renderer='templates/mytemplate.pt', request_method="POST")
+@view_config(route_name="signup", renderer="templates/signup.pt", request_method="GET")
+def signup(req):
+    return {"success": True}
+
+@view_config(route_name='signup', renderer='templates/signup.pt', request_method="POST")
 def create_user(req):
     username = req.POST.get('username')
     password = req.POST.get('password')
@@ -23,4 +27,8 @@ def create_user(req):
         return {'project': 'LR-Lite', "success": False, "error": "Password is required"}
     if password != repassword:
         return {'project': 'LR-Lite', "success": False, "error": "Passwords do not match"}
-    return {'project': 'LR-Lite', "success": True}
+    try:
+        create_new_user(req.users, username, password)
+        return {'project': 'LR-Lite', "success": True}
+    except ResourceConflict:
+       return {'project': 'LR-Lite', "success": False, "error": "Username already in use"} 

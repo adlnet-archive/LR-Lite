@@ -53,6 +53,7 @@ def main(global_config, **settings):
         get_node_id, 'node_id', reify=True, property=True)
     config.add_static_view('static', 'static', cache_max_age=3600)
     config.add_route('home', '/')
+    config.add_route("signup", '/signup')
     config.include('lrlite.api', route_prefix="/v1")
     config.scan()
     return config.make_wsgi_app()
