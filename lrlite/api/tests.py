@@ -11,7 +11,7 @@ import iso8601
 class ViewTests(unittest.TestCase):
 
     def add_couchdb(self, request):
-        s = Server(uri="http://localhost:5984")
+        s = Server(uri="http://admin:password@localhost:5984")
         db = s.get_or_create_db("resource_data")
         return db
 

@@ -13,6 +13,7 @@ LR_Lite.egg-info/not-zip-safe
 LR_Lite.egg-info/requires.txt
 LR_Lite.egg-info/top_level.txt
 lrlite/__init__.py
+lrlite/models.py
 lrlite/tests.py
 lrlite/views.py
 lrlite/api/__init__.py

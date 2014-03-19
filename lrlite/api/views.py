@@ -59,9 +59,12 @@ def _parse_retrieve_params(req):
     return params
 
 
-@view_config(route_name="api", renderer="json", request_method="PUT")
+@view_config(route_name="api", renderer="json", request_method="PUT", permission="user")
 def add_envelope(req):
-    data = json.loads(req.body)
+    try:
+        data = json.loads(req.body)
+    except:
+        raise HTTPBadRequest("Body must contain valid json")
     _populate_node_values(data, req)
     if data[_DOC_ID] in req.db:
         return {"OK": False, "msg": "doc_ID is taken"}
@@ -76,6 +79,7 @@ def add_envelope(req):
 
 
 def _get_db_uri(db, params):
+    print(db)
     list_function = "ids"
     if params['include_docs']:
         list_function = "docs"
