@@ -80,8 +80,11 @@ class ViewTests(unittest.TestCase):
 
     def test_add_envelope(self):
         from .views import add_envelope
-        request = testing.DummyRequest()
+        from requests import post
+        resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
+        request = testing.DummyRequest()        
         request.db = self.add_couchdb(request)
+        request.auth_cookie = resp.headers['set-cookie']
         request.node_id = "abc123"
         request.body = json.dumps({
             "doc_type": "resource_data",
