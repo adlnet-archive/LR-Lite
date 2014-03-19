@@ -74,7 +74,8 @@ def add_envelope(req):
     result = validate_signature(data)
     if not result.success:
         return {"OK": False, "msg": request.message}
-    req.db[data[_DOC_ID]] = data
+    data['_id'] = data[_DOC_ID]
+    requests.post(req.db.uri, data=json.dumps(data), headers={"Content-Type": "appliction/json", 'set-cookie': req.auth_cookie})
     return {"OK": True, _DOC_ID: data[_DOC_ID]}
 
 

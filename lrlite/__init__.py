@@ -20,11 +20,12 @@ class Root(object):
 def auth_check(user, password, req):
     import requests
     data = {"name": user, "password": password}
-    response = requests.post(req.db.server_uri + "/_session", data=data)
-    print(response.headers)
+    response = requests.post(req.db.server_uri + "/_session", data=data)    
     data = response.json()
     roles = []
     roles.extend(data.get("roles", []))
+    print(response.headers)
+    req.auth_cookie = response.headers['set-cookie']
     return roles
 
 
