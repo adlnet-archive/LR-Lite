@@ -23,8 +23,8 @@ _END_KEY = 'endkey'
 _INCLUDE_DOCS = 'include_docs'
 _FROM = "from"
 _UNTIL = "until"
-
-
+_PAGE = "page"
+_PAGE_SIZE = 25
 def _populate_node_values(envelope, req):
     if _DOC_ID not in envelope:
         doc_id = uuid.uuid4().hex
@@ -36,7 +36,7 @@ def _populate_node_values(envelope, req):
 
 
 def _parse_retrieve_params(req):
-    params = {"limit": 10, "stale": "update_after"}
+    params = {"limit": _PAGE_SIZE, "stale": "update_after"}
     include_docs = req.GET.get(_INCLUDE_DOCS, "false")
     try:
         include_docs = json.loads(include_docs)
@@ -56,6 +56,13 @@ def _parse_retrieve_params(req):
         raise HTTPBadRequest("Invalid until time, must be ISO 8601 format")
     if params[_END_KEY] < params[_START_KEY]:
         raise HTTPBadRequest("From date cannot come after until date")
+    if _PAGE in req.GET:
+        try:
+            page = int(req.GET.get(_PAGE))
+            params['skip'] = page * _PAGE_SIZE            
+        except:
+            raise HTTPBadRequest("Page must be a valid integer")
+    print(params)
     return params
 
 
@@ -80,7 +87,6 @@ def add_envelope(req):
 
 
 def _get_db_uri(db, params):
-    print(db)
     list_function = "ids"
     if params['include_docs']:
         list_function = "docs"
