@@ -1,4 +1,5 @@
 from pyramid.view import view_config
+from pyramid.security import authenticated_userid
 from .models import *
 from logging import getLogger
 from couchdbkit.exceptions import ResourceConflict
@@ -8,7 +9,7 @@ def _validate_param(param):
     return param is not None and len(param) > 0
 
 @view_config(route_name='home', renderer='templates/mytemplate.pt', request_method="GET")
-def home(request):
+def home(req):
     return {'project': 'LR-Lite', "success": True, "error": "test"}
 
 

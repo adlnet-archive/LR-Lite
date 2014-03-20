@@ -1,5 +1,6 @@
 from pyramid.config import Configurator
 from couchdbkit import *
+from pyramid.security import remember
 from pyramid.authentication import BasicAuthAuthenticationPolicy
 from pyramid.security import Authenticated, Allow, Everyone, ALL_PERMISSIONS
 from pyramid.authorization import ACLAuthorizationPolicy
@@ -24,8 +25,7 @@ def auth_check(user, password, req):
     data = response.json()
     roles = []
     roles.extend(data.get("roles", []))
-    print(response.headers)
-    req.auth_cookie = response.headers['set-cookie']
+    req.auth_cookie = response.headers['set-cookie']    
     return roles
 
 
