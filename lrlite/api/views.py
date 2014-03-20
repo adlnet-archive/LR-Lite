@@ -25,6 +25,8 @@ _FROM = "from"
 _UNTIL = "until"
 _PAGE = "page"
 _PAGE_SIZE = 25
+
+
 def _populate_node_values(envelope, req):
     if _DOC_ID not in envelope:
         doc_id = uuid.uuid4().hex
@@ -59,10 +61,9 @@ def _parse_retrieve_params(req):
     if _PAGE in req.GET:
         try:
             page = int(req.GET.get(_PAGE))
-            params['skip'] = page * _PAGE_SIZE            
+            params['skip'] = page * _PAGE_SIZE
         except:
             raise HTTPBadRequest("Page must be a valid integer")
-    print(params)
     return params
 
 
@@ -79,10 +80,11 @@ def add_envelope(req):
     if not result.success:
         return {"OK": False, "msg": result.message}
     result = validate_signature(data)
-    if not result.success:
-        return {"OK": False, "msg": request.message}
+    if result.success == False:
+        return {"OK": False, "msg": result.message}
     data['_id'] = data[_DOC_ID]
-    requests.post(req.db.uri, data=json.dumps(data), headers={"Content-Type": "appliction/json", 'set-cookie': req.auth_cookie})
+    requests.post(req.db.uri, data=json.dumps(data),
+                  headers={"Content-Type": "appliction/json", 'set-cookie': req.auth_cookie})
     return {"OK": True, _DOC_ID: data[_DOC_ID]}
 
 
@@ -99,7 +101,8 @@ def retrieve_list(req):
     headers = {
         'Content-Type': 'application/json',
     }
-    resp = requests.get(_get_db_uri(req.db, params), stream=True, params=params)
+    resp = requests.get(_get_db_uri(req.db, params),
+                        stream=True, params=params)
     r = Response(headers=headers)
     r.body_file = resp.raw
     return r

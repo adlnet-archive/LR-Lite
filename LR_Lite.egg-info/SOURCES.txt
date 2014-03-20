@@ -3,6 +3,7 @@ MANIFEST.in
 README.txt
 development.ini
 production.ini
+requirements.txt
 setup.cfg
 setup.py
 LR_Lite.egg-info/PKG-INFO
@@ -35,3 +36,4 @@ lrlite/static/pyramid-small.png
 lrlite/static/pyramid.png
 lrlite/static/transparent.gif
 lrlite/templates/mytemplate.pt
+lrlite/templates/signup.pt

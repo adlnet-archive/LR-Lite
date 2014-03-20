@@ -78,7 +78,7 @@ class ViewTests(unittest.TestCase):
         request = self._prepare_request(params)
         self.assertRaises(HTTPBadRequest, retrieve_list, request)
 
-    def test_add_envelope(self):
+    def test_add_envelope_lrmi(self):
         from .views import add_envelope
         from requests import post
         resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
@@ -131,3 +131,35 @@ class ViewTests(unittest.TestCase):
         })
         info = add_envelope(request)
         assert info['OK']
+
+    def test_add_envelope_str(self):
+        from .views import add_envelope
+        from requests import post
+        resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
+        request = testing.DummyRequest()        
+        request.db = self.add_couchdb(request)
+        request.auth_cookie = resp.headers['set-cookie']
+        request.node_id = "abc123"
+        request.body = json.dumps({
+            "doc_type": "resource_data",
+            "resource_locator": "",
+            "resource_data": "test",
+            "keys": [],
+            "TOS": {
+                "submission_TOS": "http://www.learningregistry.org/information-assurances/open-information-assurances-1-0"
+            },
+            "resource_data_type": "metadata",
+            "payload_schema_locator": "http://www.w3.org/TR/2012/WD-microdata-20121025/#converting-html-to-other-formats",
+            "payload_placement": "inline",
+            "payload_schema": ["plain text"],
+            "doc_version": "0.23.0",
+            "active": True,
+            "identity": {
+                "submitter": "inBloom Tagger Application <tagger@inbloom.org>",
+                "signer": "Learning Registry SLC Node <lrnode@inbloom.org>",
+                "submitter_type": "user",
+                "curator": "5a4bfe96-1724-4565-9db1-35b3796e3ce1:jordi.juarez@udl.cat@null"
+            }
+        })
+        info = add_envelope(request)    
+        assert info['OK'], str(info)
