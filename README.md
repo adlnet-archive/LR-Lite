@@ -4,7 +4,7 @@ LR-Lite
 
 To get data from a Learning Registry Lite node, you issue an HTTP GET request to the /v1/lr endpoint
 
-``` 
+``` Shell
 curl http://domain/v1/lr
 ```
 
@@ -28,7 +28,7 @@ page | Integer | results page, starting at 0
 
 To submit data submit a PUT request to the /v1/lr endpoint 
 
-```
+``` Shell
 curl -XPOST http://domain/v1/lr -H "Content-Type: applicaiton/json" -d @envelope.json -u username
 ```
 
