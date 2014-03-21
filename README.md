@@ -35,4 +35,3 @@ curl -XPOST http://domain/v1/lr -H "Content-Type: applicaiton/json" -d @envelope
 
 Submission uses HTTP Basic Auth and requires a user account to be able to publish
 
-
