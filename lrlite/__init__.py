@@ -21,11 +21,11 @@ class Root(object):
 def auth_check(user, password, req):
     import requests
     data = {"name": user, "password": password}
-    response = requests.post(req.db.server_uri + "/_session", data=data)    
+    response = requests.post(req.db.server_uri + "/_session", data=data)
     data = response.json()
     roles = []
     roles.extend(data.get("roles", []))
-    req.auth_cookie = response.headers['set-cookie']    
+    req.auth_cookie = response.headers['set-cookie']
     return roles
 
 
@@ -47,10 +47,19 @@ def main(global_config, **settings):
 
     def get_node_id(req):
         return settings['node.id']
-    config.add_request_method(add_couchdb, 'db', reify=True, property=True)
-    config.add_request_method(add_users, "users", reify=True, property=True)
-    config.add_request_method(
-        get_node_id, 'node_id', reify=True, property=True)
+
+    config.add_request_method(add_couchdb, 
+                              'db', 
+                              reify=True, 
+                              property=True)
+    config.add_request_method(add_users, 
+                              "users", 
+                              reify=True, 
+                              property=True)
+    config.add_request_method(get_node_id,
+                              'node_id',
+                              reify=True,
+                              property=True)
     config.add_static_view('static', 'static', cache_max_age=3600)
     config.add_route('home', '/')
     config.add_route("signup", '/signup')
