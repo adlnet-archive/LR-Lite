@@ -19,10 +19,20 @@ This will return JSON
 
 This request can be augmented with the following query string paramaters
 
-paramater | value | effect
+paramater | type | effect
 ----------|-------|--------
 include_docs | boolean | true: entire envelope false: only IDs
 from | ISO8601 Timestamp | Earliest node_timestamp returned
 until | ISO8601 Timestamp | Latest node_timestamp returned
 page | Integer | results page, starting at 0
+
+To submit data submit a POST request to the /v1/lr endpoint 
+
 ```
+curl -XPOST http://domain/v1/lr -H "Content-Type: applicaiton/json" -d @envelope.json -u username
+```
+
+
+Submission uses HTTP Basic Auth and requires a user account to be able to publish
+
+
