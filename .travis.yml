@@ -1,0 +1,8 @@
+language: python
+scala:
+  - 2.6.7
+install: "pip install -r requirements; python setup.py develop"
+services:
+  - couchdb
+script: "python setup.py test" 
+
