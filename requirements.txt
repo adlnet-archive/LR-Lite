@@ -1,6 +1,6 @@
 Chameleon==2.14
 Couchapp==1.0.1
-LRSignature==0.1.15
+LRSignature>=0.1.14
 Mako==0.9.1
 MarkupSafe==0.18
 PasteDeploy==1.5.2
