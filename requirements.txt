@@ -1,6 +1,5 @@
 Chameleon==2.14
 Couchapp==1.0.1
--e git+git@github.com:adlnet/LR-Lite.git@71a920c04b4c57f45cc58b8a7189011c54945bc0#egg=LR_Lite-master
 LRSignature==0.1.15
 Mako==0.9.1
 MarkupSafe==0.18
