@@ -1,4 +1,5 @@
 from pyramid.view import view_config
+import gnupg
 from pyramid.security import authenticated_userid
 from .models import *
 from logging import getLogger
@@ -33,3 +34,10 @@ def create_user(req):
         return {'project': 'LR-Lite', "success": True}
     except ResourceConflict:
        return {'project': 'LR-Lite', "success": False, "error": "Username already in use"} 
+
+@view_config(route_name="userkey", renderer="string", request_method="GET")
+def get_user_key(req):
+    gpg = gnupg.GPG()
+    username = req.matchdict['username']
+    data = req.users['org.couchdb.user:' + username]
+    return gpg.export_keys(data.get('keyid'))

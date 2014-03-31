@@ -26,6 +26,7 @@ def auth_check(user, password, req):
     roles = []
     roles.extend(data.get("roles", []))
     req.auth_cookie = response.headers['set-cookie']
+    req.username = username
     return roles
 
 
@@ -47,7 +48,6 @@ def main(global_config, **settings):
 
     def get_node_id(req):
         return settings['node.id']
-
     config.add_request_method(add_couchdb, 
                               'db', 
                               reify=True, 
@@ -60,9 +60,11 @@ def main(global_config, **settings):
                               'node_id',
                               reify=True,
                               property=True)
+
     config.add_static_view('static', 'static', cache_max_age=3600)
     config.add_route('home', '/')
     config.add_route("signup", '/signup')
+    config.add_route("userkey", '/user/:username/key')
     config.include('lrlite.api', route_prefix="/v1")
     config.scan()
     return config.make_wsgi_app()

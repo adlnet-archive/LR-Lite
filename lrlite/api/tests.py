@@ -1,23 +1,25 @@
 import unittest
-from .views import retrieve_list
+from .views import retrieve_list, deleteDocument
 from pyramid.httpexceptions import HTTPBadRequest
 import json
 from couchdbkit import *
 from pyramid import testing
-from pprint import pprint
+from pprint import pformat
 import iso8601
 
 
 class ViewTests(unittest.TestCase):
 
     def add_couchdb(self, request):
-        s = Server(uri="http://admin:password@localhost:5984")
+        s = Server(uri="http://localhost:5984")
         db = s.get_or_create_db("resource_data")
         return db
+
 
     def setUp(self):
         config = testing.setUp()
         self.config = config
+        self.config.add_route('userkey', '/user/:username/key')
 
     def tearDown(self):
         testing.tearDown()
@@ -25,6 +27,9 @@ class ViewTests(unittest.TestCase):
     def _prepare_request(self, params):
         request = testing.DummyRequest()
         request.db = self.add_couchdb(request)
+        s = Server(uri="http://admin:password@localhost:5984")
+        request.users = s.get_db("_users")
+        request.username = "wegrata3"
         request.node_id = "abc123"
         request.GET['include_docs'] = json.dumps(True)
         request.GET.update(params)
@@ -81,11 +86,9 @@ class ViewTests(unittest.TestCase):
     def test_add_envelope_lrmi(self):
         from .views import add_envelope
         from requests import post
+        request = self._prepare_request({})
         resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
-        request = testing.DummyRequest()        
-        request.db = self.add_couchdb(request)
         request.auth_cookie = resp.headers['set-cookie']
-        request.node_id = "abc123"
         request.body = json.dumps({
             "doc_type": "resource_data",
             "resource_locator": "",
@@ -135,11 +138,9 @@ class ViewTests(unittest.TestCase):
     def test_add_envelope_str(self):
         from .views import add_envelope
         from requests import post
+        request = self._prepare_request({})
         resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
-        request = testing.DummyRequest()        
-        request.db = self.add_couchdb(request)
         request.auth_cookie = resp.headers['set-cookie']
-        request.node_id = "abc123"
         request.body = json.dumps({
             "doc_type": "resource_data",
             "resource_locator": "",
@@ -162,14 +163,45 @@ class ViewTests(unittest.TestCase):
             }
         })
         info = add_envelope(request)    
-        assert info['OK'], str(info)
+        assert info['OK'], pformat(info)
+
+    def test_add_envelope_auto_sign(self):
+        from .views import add_envelope
+        from requests import post
+        request = self._prepare_request({})
+        resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
+        request.auth_cookie = resp.headers['set-cookie']
+        request.body = json.dumps({
+            "doc_type": "resource_data",
+            "resource_locator": "http://test",
+            "resource_data": "test",
+            "keys": [],
+            "TOS": {
+                "submission_TOS": "http://www.learningregistry.org/information-assurances/open-information-assurances-1-0"
+            },
+            "resource_data_type": "metadata",
+            "payload_schema_locator": "http://www.w3.org/TR/2012/WD-microdata-20121025/#converting-html-to-other-formats",
+            "payload_placement": "inline",
+            "payload_schema": ["plain text"],
+            "doc_version": "0.23.0",
+            "active": True,
+            "identity": {
+                "submitter": "inBloom Tagger Application <tagger@inbloom.org>",
+                "signer": "Learning Registry SLC Node <lrnode@inbloom.org>",
+                "submitter_type": "user",
+                "curator": "5a4bfe96-1724-4565-9db1-35b3796e3ce1:jordi.juarez@udl.cat@null"
+            }
+        })
+        info = add_envelope(request)    
+        assert info['OK'], pformat(info)
+        doc = request.db[info["doc_ID"]]
+        assert "digital_signature" in doc
 
     def test_add_envelope_linked_fail(self):
         from .views import add_envelope
         from requests import post
+        request = self._prepare_request({})
         resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
-        request = testing.DummyRequest()        
-        request.db = self.add_couchdb(request)
         request.auth_cookie = resp.headers['set-cookie']
         request.node_id = "abc123"
         request.body = json.dumps({
@@ -200,11 +232,9 @@ class ViewTests(unittest.TestCase):
     def test_add_envelope_inline_fail(self):
         from .views import add_envelope
         from requests import post
+        request = self._prepare_request({})
         resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
-        request = testing.DummyRequest()        
-        request.db = self.add_couchdb(request)
         request.auth_cookie = resp.headers['set-cookie']
-        request.node_id = "abc123"
         request.body = json.dumps({
             "doc_type": "resource_data",
             "resource_locator": "",
@@ -226,4 +256,15 @@ class ViewTests(unittest.TestCase):
             }
         })
         info = add_envelope(request)    
-        assert not info['OK']
+        assert not info['OK'], pformat(info)
+
+    # def test_delete(self):
+    #     import base64
+    #     import gnupg
+    #     gpg = gnupg.GPG()
+    #     request = testing.DummyRequest()        
+    #     request.matchdict['doc_id'] = 'abc'
+    #     request.db = self.add_couchdb(request)
+    #     data = gpg.sign(request.matchdict['doc_id']).data
+    #     request.headers['signature'] = base64.b64encode(json.dumps({"signature": data}))
+    #     result = deleteDocument(request)

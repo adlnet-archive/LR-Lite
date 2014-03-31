@@ -1,8 +1,11 @@
 from pyramid.httpexceptions import HTTPBadRequest, HTTPNotFound
+from LRSignature.sign.Sign import Sign_0_21, Sign_0_23, Sign_0_49, Sign_0_51
+import gnupg
 from pyramid.view import view_config
 from pyramid.response import Response
 from lib.validation import *
 from logging import getLogger
+import base64
 import json
 import uuid
 import calendar
@@ -13,6 +16,7 @@ import iso8601
 import pdb
 log = getLogger(__name__)
 
+gpg_location = "/usr/bin/gpg"
 _DOC_ID = "doc_ID"
 _NODE_TIMESTAMP = "node_timestamp"
 _CREATE_TIMESTAMP = "create_timestamp"
@@ -25,6 +29,16 @@ _FROM = "from"
 _UNTIL = "until"
 _PAGE = "page"
 _PAGE_SIZE = 25
+
+def _get_signer_for_version(version, private_key):    
+    if version == "0.21.0":
+        return Sign_0_21(privateKeyID=private_key, gpgbin=gpg_location)
+    elif version == "0.23.0":
+        return Sign_0_23(privateKeyID=private_key, gpgbin=gpg_location)
+    elif version == "0.49.0":
+        return Sign_0_49(privateKeyID=private_key, gpgbin=gpg_location)        
+    elif version == "0.51.0":
+        return Sign_0_51(privateKeyID=private_key, gpgbin=gpg_location)
 
 
 def _populate_node_values(envelope, req):
@@ -79,13 +93,25 @@ def add_envelope(req):
     result = validate_schema(data)
     if not result.success:
         return {"OK": False, "msg": result.message}
-    result = validate_signature(data)
-    if result.success == False:
-        return {"OK": False, "msg": result.message}
-    data['_id'] = data[_DOC_ID]
-    requests.post(req.db.uri, data=json.dumps(data),
-                  headers={"Content-Type": "appliction/json", 'set-cookie': req.auth_cookie})
-    return {"OK": True, _DOC_ID: data[_DOC_ID]}
+    if "digital_signature" not in data:
+        user_info = req.users["org.couchdb.user:" + req.username]
+        signer = _get_signer_for_version(data.get("doc_version"), user_info.get("keyid"))        
+        signer.sign(data)
+        data["digital_signature"]['key_location'] = [req.route_url("userkey", username=req.username)]
+    else:    
+        result = validate_signature(data)
+        if result.success == False:
+                return {"OK": False, "msg": result.message}        
+    data['_id'] = data[_DOC_ID]    
+    resp = requests.post(req.db.uri, data=json.dumps(data),
+                         headers={
+                             "Content-Type": "application/json",
+                             'set-cookie': req.auth_cookie}
+                         )
+    if resp.ok:
+        return {"OK": True, _DOC_ID: data[_DOC_ID]}
+    else:
+        raise Exception("Couchdb not available")
 
 
 def _get_db_uri(db, params):
@@ -117,5 +143,34 @@ def retriveEnvelope(req):
 
 
 @view_config(route_name="document", renderer="json", request_method="POST")
-def updateDocumetn(req):
-    return {"target": req.matchdict.get("doc_id")}
+def updateDocument(req):
+    try:
+        data = json.loads(req.body)
+    except:
+        raise HTTPBadRequest("Body must contain valid json")
+    _populate_node_values(data, req)
+    if data[_DOC_ID] in req.db:
+        return {"OK": False, "msg": "doc_ID is taken"}
+    result = validate_schema(data)
+    if not result.success:
+        return {"OK": False, "msg": result.message}
+    # TODO: finish update
+    return {"OK": True}
+
+
+@view_config(route_name="document", renderer="json", request_method="DELETE")
+def deleteDocument(req):
+    doc_id = req.matchdict['doc_id']
+    sig_block = json.loads(base64.b64decode(req.headers['signature']))
+    gpg = gnupg.GPG()
+    if not gpg.verify(sig_block.get("signature")).valid:
+        raise HTTPBadRequest("Invalid Signature")
+    if doc_id not in req.db:
+        raise HTTPBadRequest("Document does not exist")
+    old_doc = req.db[doc_id]
+    print(old_doc.get("digital_signature", {}).get("signer"))
+    if old_doc.get("digital_signature", {}).get("signer") != sig_block.get("signer"):
+        raise HTTPBadRequest("Invalid Signer")
+    old_doc['doc_type'] = "tombstone"
+    req.db.update(old_doc)
+    return {}
