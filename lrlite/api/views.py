@@ -158,7 +158,7 @@ def updateDocument(req):
     return {"OK": True}
 
 
-@view_config(route_name="document", renderer="json", request_method="DELETE")
+@view_config(route_name="document", renderer="json", request_method="DELETE", permission="user")
 def deleteDocument(req):
     doc_id = req.matchdict['doc_id']
     sig_block = json.loads(base64.b64decode(req.headers['signature']))
@@ -172,6 +172,5 @@ def deleteDocument(req):
     if old_doc.get("digital_signature", {}).get("signer") != sig_block.get("signer"):
         raise HTTPBadRequest("Invalid Signer")
     old_doc['doc_type'] = "tombstone"
-    print(dir(req.db))
     req.db.save_doc(old_doc)
     return {"OK": True}

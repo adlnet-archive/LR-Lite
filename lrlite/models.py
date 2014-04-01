@@ -28,6 +28,5 @@ def create_new_user(db, username, password):
         "password": password,
         "keyid": _generate_key(username)
     }
-    result = db.save_doc(user_info)
-    
+    result = db.save_doc(user_info)    
     return result
