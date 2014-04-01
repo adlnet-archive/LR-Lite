@@ -172,5 +172,6 @@ def deleteDocument(req):
     if old_doc.get("digital_signature", {}).get("signer") != sig_block.get("signer"):
         raise HTTPBadRequest("Invalid Signer")
     old_doc['doc_type'] = "tombstone"
-    req.db.update(old_doc)
-    return {}
+    print(dir(req.db))
+    req.db.save_doc(old_doc)
+    return {"OK": True}
