@@ -35,4 +35,5 @@ lrlite/static/pyramid-small.png
 lrlite/static/pyramid.png
 lrlite/static/transparent.gif
 lrlite/templates/mytemplate.pt
+lrlite/templates/signin.pt
 lrlite/templates/signup.pt

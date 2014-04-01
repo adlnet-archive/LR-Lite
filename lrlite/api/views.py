@@ -168,7 +168,6 @@ def deleteDocument(req):
     if doc_id not in req.db:
         raise HTTPBadRequest("Document does not exist")
     old_doc = req.db[doc_id]
-    print(old_doc.get("digital_signature", {}).get("signer"))
     if old_doc.get("digital_signature", {}).get("signer") != sig_block.get("signer"):
         raise HTTPBadRequest("Invalid Signer")
     old_doc['doc_type'] = "tombstone"

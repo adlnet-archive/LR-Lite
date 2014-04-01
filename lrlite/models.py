@@ -1,4 +1,5 @@
 from gnupg import GPG
+import requests
 from multiprocessing import Process
 import random
 def generate_entropy(): 
@@ -19,7 +20,6 @@ def _generate_key(username):
             return k['keyid']
 
 def create_new_user(db, username, password):
-
     user_info = {
         "_id": "org.couchdb.user:" + username,
         "name": username,
@@ -30,3 +30,7 @@ def create_new_user(db, username, password):
     }
     result = db.save_doc(user_info)    
     return result
+
+def get_user(db, username, cookie):
+    user = requests.get(db.uri + '/org.couchdb.user:' + username, headers={"set-cookie": cookie}).json()
+    return user

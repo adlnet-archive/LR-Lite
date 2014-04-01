@@ -20,8 +20,8 @@ class Root(object):
 
 def auth_check(user, password, req):
     import requests
-    data = {"name": user, "password": password}
-    response = requests.post(req.db.server_uri + "/_session", data=data)
+    data = {"name": user, "password": password}    
+    response = requests.post(req.db.server_uri + "/_session", data=data)    
     data = response.json()
     roles = []
     roles.extend(data.get("roles", []))
@@ -64,6 +64,7 @@ def main(global_config, **settings):
     config.add_static_view('static', 'static', cache_max_age=3600)
     config.add_route('home', '/')
     config.add_route("signup", '/signup')
+    config.add_route("signin", '/signin')
     config.add_route("userkey", '/user/:username/key')
     config.include('lrlite.api', route_prefix="/v1")
     config.scan()
