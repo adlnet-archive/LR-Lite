@@ -65,6 +65,7 @@ def main(global_config, **settings):
     config.add_route('home', '/')
     config.add_route("signup", '/signup')
     config.add_route("signin", '/signin')
+    config.add_route("signout", '/signout')
     config.add_route("userkey", '/user/:username/key')
     config.include('lrlite.api', route_prefix="/v1")
     config.scan()
