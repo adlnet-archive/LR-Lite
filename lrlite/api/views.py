@@ -15,13 +15,14 @@ import ijson
 import iso8601
 import pdb
 log = getLogger(__name__)
-
 gpg_location = "/usr/bin/gpg"
+_USER_PREFIX = "org.couchdb.user:"
 _DOC_ID = "doc_ID"
 _NODE_TIMESTAMP = "node_timestamp"
 _CREATE_TIMESTAMP = "create_timestamp"
 _UPDATE_TIMESTAMP = "update_timestamp"
 _PUBLISHING_NODE = 'publishing_node'
+_DIGITAL_SIG = 'digital_signature'
 _START_KEY = "startkey"
 _END_KEY = 'endkey'
 _INCLUDE_DOCS = 'include_docs'
@@ -94,7 +95,7 @@ def add_envelope(req):
     if not result.success:
         return {"OK": False, "msg": result.message}
     if "digital_signature" not in data:
-        user_info = req.users["org.couchdb.user:" + req.username]
+        user_info = req.users[_USER_PREFIX + req.username]
         signer = _get_signer_for_version(data.get("doc_version"), user_info.get("keyid"))        
         signer.sign(data)
         data["digital_signature"]['key_location'] = [req.route_url("userkey", username=req.username)]
@@ -148,28 +149,52 @@ def updateDocument(req):
         data = json.loads(req.body)
     except:
         raise HTTPBadRequest("Body must contain valid json")
-    _populate_node_values(data, req)
-    if data[_DOC_ID] in req.db:
-        return {"OK": False, "msg": "doc_ID is taken"}
-    result = validate_schema(data)
-    if not result.success:
-        return {"OK": False, "msg": result.message}
-    # TODO: finish update
+    doc_id = req.matchdict['doc_id']    
+    if doc_id not in req.db:
+        raise HTTPBadRequest("Document does not exist")
+    gpg = gnupg.GPG()
+    user_info = req.users["org.couchdb.user:" + req.username]
+    keys = [k for k in gpg.list_keys() if k['keyid'] == user_info['keyid']]    
+    if len(keys) <= 0:
+        raise HTTPBadRequest("Cannot delete document on this server")
+    key = keys.pop()
+    doc_owner = False
+    old_doc = req.db[doc_id]
+    for uid in key.get('uids', []):
+        if uid == old_doc.get("digital_signature", {}).get("key_owner"):
+            doc_owner = True
+    if not doc_owner:
+        raise HTTPBadRequest("Cannot delete document on this server")
+    old_doc.update(data)
+    user_info = req.users[_USER_PREFIX + req.username]
+    signer = _get_signer_for_version(old_doc.get("doc_version"), user_info.get("keyid"))        
+    del old_doc[_DIGITAL_SIG]
+    signer.sign(old_doc)
+    old_doc[_DIGITAL_SIG]['key_location'] = [req.route_url("userkey", username=req.username)]    
+    current_time = datetime.utcnow().isoformat() + 'Z'
+    old_doc[_NODE_TIMESTAMP] = current_time
+    req.db.save_doc(old_doc)
     return {"OK": True}
 
 
 @view_config(route_name="document", renderer="json", request_method="DELETE", permission="user")
 def deleteDocument(req):
-    doc_id = req.matchdict['doc_id']
-    sig_block = json.loads(base64.b64decode(req.headers['signature']))
-    gpg = gnupg.GPG()
-    if not gpg.verify(sig_block.get("signature")).valid:
-        raise HTTPBadRequest("Invalid Signature")
+    doc_id = req.matchdict['doc_id']    
     if doc_id not in req.db:
         raise HTTPBadRequest("Document does not exist")
+    gpg = gnupg.GPG()
+    user_info = req.users["org.couchdb.user:" + req.username]
+    keys = [k for k in gpg.list_keys() if k['keyid'] == user_info['keyid']]    
+    if len(keys) <= 0:
+        raise HTTPBadRequest("Cannot delete document on this server")
+    key = keys.pop()
+    doc_owner = False
     old_doc = req.db[doc_id]
-    if old_doc.get("digital_signature", {}).get("signer") != sig_block.get("signer"):
-        raise HTTPBadRequest("Invalid Signer")
-    old_doc['doc_type'] = "tombstone"
+    for uid in key.get('uids', []):
+        if uid == old_doc.get("digital_signature", {}).get("key_owner"):
+            doc_owner = True
+    if not doc_owner:
+        raise HTTPBadRequest("Cannot delete document on this server")
+    old_doc['doc_type'] = "tombstone"    
     req.db.save_doc(old_doc)
     return {"OK": True}

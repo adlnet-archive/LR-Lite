@@ -289,12 +289,12 @@ class ViewTests(unittest.TestCase):
         })
         info = add_envelope(request)            
         assert info["OK"]
-        gpg = gnupg.GPG()
         request = testing.DummyRequest()        
         request.matchdict['doc_id'] = info['doc_ID']
         request.db = self.add_couchdb(request)
-        data = gpg.sign(request.matchdict['doc_id']).data
-        request.headers['signature'] = base64.b64encode(json.dumps({"signature": data}))
-        result = deleteDocument(request)
+        s = Server(uri="http://admin:password@localhost:5984")
+        request.users = s.get_db("_users")
+        request.username = "wegrata3"
+        result = deleteDocument(request)        
         assert result["OK"]
         assert request.db[info['doc_ID']].get('doc_type') == "tombstone"

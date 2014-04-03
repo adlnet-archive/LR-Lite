@@ -14,6 +14,8 @@ from pyramid.security import Authenticated, Allow, Everyone, ALL_PERMISSIONS
 from pyramid.authorization import ACLAuthorizationPolicy
 from logging import getLogger
 log = getLogger(__name__)
+_UPDATE_VIEW = 'update_view'
+
 
 
 def update_views(db_uri):
@@ -42,14 +44,14 @@ def monitor_changes(db):
             if count % 100 == 0:
                 log.debug("updating views")
                 try:
-                    uwsgi.spool({"action": "update_view", "uri": db.uri})
+                    uwsgi.spool({"action": _UPDATE_VIEW, "uri": db.uri})
                 except:
                     pass
 
 
 def spooler(env):
     action = env.get('action')
-    if action == 'update_view':
+    if action == _UPDATE_VIEW:
         update_views(env['uri'])
         return uwsgi.SPOOL_OK
     else:
