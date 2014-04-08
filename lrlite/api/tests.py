@@ -1,5 +1,5 @@
 import unittest
-from .views import retrieve_list, deleteDocument
+from .views import retrieve_list, delete_document, update_document
 from pyramid.httpexceptions import HTTPBadRequest
 import json
 from couchdbkit import *
@@ -264,7 +264,7 @@ class ViewTests(unittest.TestCase):
         from .views import add_envelope
         from requests import post
         request = self._prepare_request({})
-        resp = post("http://localhost:5984/_session", data={"name": 'user', "password": 'password'})        
+        resp = post("http://localhost:5984/_session", data={"name": 'wegrata3', "password": 'password'})        
         request.auth_cookie = resp.headers['set-cookie']
         request.body = json.dumps({
             "doc_type": "resource_data",
@@ -295,6 +295,72 @@ class ViewTests(unittest.TestCase):
         s = Server(uri="http://admin:password@localhost:5984")
         request.users = s.get_db("_users")
         request.username = "wegrata3"
-        result = deleteDocument(request)        
+        result = delete_document(request)        
         assert result["OK"]
         assert request.db[info['doc_ID']].get('doc_type') == "tombstone"
+
+    def test_update(self):
+        import base64
+        import gnupg
+        from .views import add_envelope
+        from requests import post
+        request = self._prepare_request({})
+        resp = post("http://localhost:5984/_session", data={"name": 'wegrata3', "password": 'password'})        
+        request.auth_cookie = resp.headers['set-cookie']
+        request.body = json.dumps({
+            "doc_type": "resource_data",
+            "resource_locator": "http://test",
+            "resource_data": "test",
+            "keys": [],
+            "TOS": {
+                "submission_TOS": "http://www.learningregistry.org/information-assurances/open-information-assurances-1-0"
+            },
+            "resource_data_type": "metadata",
+            "payload_schema_locator": "http://www.w3.org/TR/2012/WD-microdata-20121025/#converting-html-to-other-formats",
+            "payload_placement": "inline",
+            "payload_schema": ["plain text"],
+            "doc_version": "0.23.0",
+            "active": True,
+            "identity": {
+                "submitter": "inBloom Tagger Application <tagger@inbloom.org>",
+                "signer": "Learning Registry SLC Node <lrnode@inbloom.org>",
+                "submitter_type": "user",
+                "curator": "5a4bfe96-1724-4565-9db1-35b3796e3ce1:jordi.juarez@udl.cat@null"
+            }
+        })
+        info = add_envelope(request)            
+        assert info["OK"]
+        request = testing.DummyRequest()        
+        request.matchdict['doc_id'] = info['doc_ID']
+        request.body = json.dumps({
+            "doc_type": "resource_data",
+            "resource_locator": "http://test123",
+            "resource_data": "test",
+            "keys": [],
+            "TOS": {
+                "submission_TOS": "http://www.learningregistry.org/information-assurances/open-information-assurances-1-0"
+            },
+            "resource_data_type": "metadata",
+            "payload_schema_locator": "http://www.w3.org/TR/2012/WD-microdata-20121025/#converting-html-to-other-formats",
+            "payload_placement": "inline",
+            "payload_schema": ["plain text"],
+            "doc_version": "0.23.0",
+            "active": True,
+            "identity": {
+                "submitter": "inBloom Tagger Application <tagger@inbloom.org>",
+                "signer": "Learning Registry SLC Node <lrnode@inbloom.org>",
+                "submitter_type": "user",
+                "curator": "5a4bfe96-1724-4565-9db1-35b3796e3ce1:jordi.juarez@udl.cat@null"
+            }
+        })        
+        request.db = self.add_couchdb(request)
+        s = Server(uri="http://admin:password@localhost:5984")
+        request.users = s.get_db("_users")
+        request.username = "wegrata3"
+        request.node_id = "abc123"
+        request.auth_cookie = resp.headers['set-cookie']
+        result = update_document(request)        
+        assert result["OK"]
+        print(result)
+        assert request.db[info['doc_ID']].get('doc_type') == "tombstone"        
+        assert result['doc_ID'] in request.db

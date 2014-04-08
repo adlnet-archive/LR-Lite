@@ -100,18 +100,18 @@ def _validate_document(data, req):
         if result.success == False:
             raise Exception(result.message)
 
-def _validate_signature(signer):
+def _validate_signature(signer, req, doc_id):
     gpg = gnupg.GPG()
     user_info = req.users["org.couchdb.user:" + req.username]
     keys = [k for k in gpg.list_keys() if k['keyid'] == user_info['keyid']]    
     if len(keys) <= 0:
         raise HTTPBadRequest("Cannot delete document on this server")
     key = keys.pop()
-    doc_owner = False
-    old_doc = req.db[doc_id]
+    doc_owner = False    
     for uid in key.get('uids', []):
         if uid == signer:
             doc_owner = True
+    return doc_owner
 
 @view_config(route_name="api", renderer="json", request_method="PUT", permission="user")
 def add_envelope(req):
@@ -146,10 +146,11 @@ def update_document(req):
     except:
         raise HTTPBadRequest("Body must contain valid json")
     _populate_node_values(data, req)
-    doc_owner = _validate_signature(old_doc.get("digital_signature", {}).get("key_owner"))
+    old_doc = req.db[doc_id]
+    doc_owner = _validate_signature(old_doc.get("digital_signature", {}).get("key_owner"), req, doc_id)
     if not doc_owner:
         raise HTTPBadRequest("Cannot delete document on this server")
-    old_doc[_DOC_TYPE] = tombstone    
+    old_doc[_DOC_TYPE] = _TOMBSTONE
     try:
         _validate_document(data, req)
     except Exception as ex:
@@ -159,6 +160,7 @@ def update_document(req):
                              "Content-Type": "application/json",
                              'set-cookie': req.auth_cookie}
                          )
+    data['_id'] = data[_DOC_ID]
     resp = requests.post(req.db.uri, data=json.dumps(data),
                          headers={
                              "Content-Type": "application/json",
@@ -191,14 +193,14 @@ def retrieve_list(req):
 
 
 @view_config(route_name="document", renderer="json", request_method="GET")
-def retriveEnvelope(req):
+def retrive_envelope(req):
     try:
         return req.db[req.matchdict.get("doc_id")]
     except:
         raise HTTPNotFound()
 
 @view_config(route_name="document", renderer="json", request_method="DELETE", permission="user")
-def deleteDocument(req):
+def delete_document(req):
     doc_id = req.matchdict['doc_id']    
     if doc_id not in req.db:
         raise HTTPBadRequest("Document does not exist")
