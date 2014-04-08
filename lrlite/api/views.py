@@ -16,6 +16,8 @@ import iso8601
 import pdb
 log = getLogger(__name__)
 gpg_location = "/usr/bin/gpg"
+_TOMBSTONE = "tombstone"
+_DOC_TYPE = 'doc_type'
 _USER_PREFIX = "org.couchdb.user:"
 _DOC_ID = "doc_ID"
 _NODE_TIMESTAMP = "node_timestamp"
@@ -82,18 +84,12 @@ def _parse_retrieve_params(req):
     return params
 
 
-@view_config(route_name="api", renderer="json", request_method="PUT", permission="user")
-def add_envelope(req):
-    try:
-        data = json.loads(req.body)
-    except:
-        raise HTTPBadRequest("Body must contain valid json")
-    _populate_node_values(data, req)
+def _validate_document(data, req):
     if data[_DOC_ID] in req.db:
-        return {"OK": False, "msg": "doc_ID is taken"}
+        raise Exception("doc_ID is taken")
     result = validate_schema(data)
     if not result.success:
-        return {"OK": False, "msg": result.message}
+        raise Exception(result.message)
     if "digital_signature" not in data:
         user_info = req.users[_USER_PREFIX + req.username]
         signer = _get_signer_for_version(data.get("doc_version"), user_info.get("keyid"))        
@@ -102,13 +98,72 @@ def add_envelope(req):
     else:    
         result = validate_signature(data)
         if result.success == False:
-                return {"OK": False, "msg": result.message}        
+            raise Exception(result.message)
+
+def _validate_signature(signer):
+    gpg = gnupg.GPG()
+    user_info = req.users["org.couchdb.user:" + req.username]
+    keys = [k for k in gpg.list_keys() if k['keyid'] == user_info['keyid']]    
+    if len(keys) <= 0:
+        raise HTTPBadRequest("Cannot delete document on this server")
+    key = keys.pop()
+    doc_owner = False
+    old_doc = req.db[doc_id]
+    for uid in key.get('uids', []):
+        if uid == signer:
+            doc_owner = True
+
+@view_config(route_name="api", renderer="json", request_method="PUT", permission="user")
+def add_envelope(req):
+    try:
+        data = json.loads(req.body)
+    except:
+        raise HTTPBadRequest("Body must contain valid json")
+    _populate_node_values(data, req)
     data['_id'] = data[_DOC_ID]    
+    try:
+        _validate_document(data, req)
+    except Exception as ex:
+        return {"OK": False, "msg": ex.message}
     resp = requests.post(req.db.uri, data=json.dumps(data),
                          headers={
                              "Content-Type": "application/json",
                              'set-cookie': req.auth_cookie}
                          )
+    if resp.ok:
+        return {"OK": True, _DOC_ID: data[_DOC_ID]}
+    else:
+        raise Exception("Couchdb not available")
+
+
+@view_config(route_name="document", renderer="json", request_method="POST", permission="user")
+def update_document(req):
+    doc_id = req.matchdict['doc_id']    
+    if doc_id not in req.db:
+        raise HTTPBadRequest("Document does not exist")    
+    try:
+        data = json.loads(req.body)
+    except:
+        raise HTTPBadRequest("Body must contain valid json")
+    _populate_node_values(data, req)
+    doc_owner = _validate_signature(old_doc.get("digital_signature", {}).get("key_owner"))
+    if not doc_owner:
+        raise HTTPBadRequest("Cannot delete document on this server")
+    old_doc[_DOC_TYPE] = tombstone    
+    try:
+        _validate_document(data, req)
+    except Exception as ex:
+        return {"OK": False, "msg": ex.message}
+    resp = requests.post(req.db.uri, data=json.dumps(old_doc),
+                         headers={
+                             "Content-Type": "application/json",
+                             'set-cookie': req.auth_cookie}
+                         )
+    resp = requests.post(req.db.uri, data=json.dumps(data),
+                         headers={
+                             "Content-Type": "application/json",
+                             'set-cookie': req.auth_cookie}
+                         )    
     if resp.ok:
         return {"OK": True, _DOC_ID: data[_DOC_ID]}
     else:
@@ -142,41 +197,6 @@ def retriveEnvelope(req):
     except:
         raise HTTPNotFound()
 
-
-@view_config(route_name="document", renderer="json", request_method="POST")
-def updateDocument(req):
-    try:
-        data = json.loads(req.body)
-    except:
-        raise HTTPBadRequest("Body must contain valid json")
-    doc_id = req.matchdict['doc_id']    
-    if doc_id not in req.db:
-        raise HTTPBadRequest("Document does not exist")
-    gpg = gnupg.GPG()
-    user_info = req.users["org.couchdb.user:" + req.username]
-    keys = [k for k in gpg.list_keys() if k['keyid'] == user_info['keyid']]    
-    if len(keys) <= 0:
-        raise HTTPBadRequest("Cannot delete document on this server")
-    key = keys.pop()
-    doc_owner = False
-    old_doc = req.db[doc_id]
-    for uid in key.get('uids', []):
-        if uid == old_doc.get("digital_signature", {}).get("key_owner"):
-            doc_owner = True
-    if not doc_owner:
-        raise HTTPBadRequest("Cannot delete document on this server")
-    old_doc.update(data)
-    user_info = req.users[_USER_PREFIX + req.username]
-    signer = _get_signer_for_version(old_doc.get("doc_version"), user_info.get("keyid"))        
-    del old_doc[_DIGITAL_SIG]
-    signer.sign(old_doc)
-    old_doc[_DIGITAL_SIG]['key_location'] = [req.route_url("userkey", username=req.username)]    
-    current_time = datetime.utcnow().isoformat() + 'Z'
-    old_doc[_NODE_TIMESTAMP] = current_time
-    req.db.save_doc(old_doc)
-    return {"OK": True}
-
-
 @view_config(route_name="document", renderer="json", request_method="DELETE", permission="user")
 def deleteDocument(req):
     doc_id = req.matchdict['doc_id']    
@@ -195,6 +215,6 @@ def deleteDocument(req):
             doc_owner = True
     if not doc_owner:
         raise HTTPBadRequest("Cannot delete document on this server")
-    old_doc['doc_type'] = "tombstone"    
+    old_doc[_DOC_TYPE] = _TOMBSTONE
     req.db.save_doc(old_doc)
     return {"OK": True}
